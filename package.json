@@ -1,0 +1,11 @@
+{
+  "name": "pdfsuite",
+  "version": "1.0.0",
+  "description": "All-in-One Client-Side PDF Suite",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "keywords": ["pdf", "converter", "word", "docx", "cloudflare", "static"],
+  "author": "",
+  "license": "MIT"
+}
