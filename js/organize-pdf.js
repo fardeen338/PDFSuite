@@ -1,6 +1,10 @@
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 import { $, formatBytes, safeFileName, downloadBlob, setupDragDrop } from "./utils.js";
 
+// Ensure PDF.js worker is always configured
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
 export function initOrganizePdf() {
   const container = $("tool-organize-pdf");
   if (!container) return;
@@ -20,7 +24,7 @@ export function initOrganizePdf() {
 
   let selectedFile = null;
   let originalPdfBytes = null;
-  let pageStates = []; // Array of { pageNum: 1-indexed, rotation: 0|90|180|270, deleted: boolean, dataUrl }
+  let pageStates = [];
 
   function showMessage(text, type = "error") {
     message.textContent = text;
@@ -59,7 +63,7 @@ export function initOrganizePdf() {
     saveBtn.disabled = false;
     splitBtn.disabled = false;
 
-    pageStates.forEach((p, index) => {
+    pageStates.forEach((p) => {
       if (p.deleted) return;
 
       const card = document.createElement("div");
@@ -96,7 +100,7 @@ export function initOrganizePdf() {
     if (!file) return;
 
     if (!file.type.includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
-      showMessage("Please upload a PDF file.");
+      showMessage("Please upload a valid PDF file.");
       return;
     }
 
@@ -111,7 +115,7 @@ export function initOrganizePdf() {
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.5 });
+        const viewport = page.getViewport({ scale: 0.6 });
         const canvas = document.createElement("canvas");
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -129,8 +133,8 @@ export function initOrganizePdf() {
       clearMessage();
       renderGrid();
     } catch (e) {
-      console.error(e);
-      showMessage(`Could not read PDF: ${e.message}`);
+      console.error("Organize PDF error:", e);
+      showMessage(`Could not read PDF: ${e.message || e}`);
     }
   }
 
@@ -148,7 +152,8 @@ export function initOrganizePdf() {
         if (p.deleted) continue;
         const [copiedPage] = await outDoc.copyPages(srcDoc, [p.pageNum - 1]);
         if (p.rotation !== 0) {
-          const currentRotation = copiedPage.getRotation().angle;
+          const rotationObj = copiedPage.getRotation();
+          const currentRotation = typeof rotationObj?.angle === "number" ? rotationObj.angle : (typeof rotationObj === "number" ? rotationObj : 0);
           copiedPage.setRotation(degrees((currentRotation + p.rotation) % 360));
         }
         outDoc.addPage(copiedPage);
@@ -159,7 +164,8 @@ export function initOrganizePdf() {
       downloadBlob(blob, `${safeFileName(selectedFile.name)}_organized.pdf`);
       showMessage("Organized PDF saved and downloaded successfully!", "success");
     } catch (e) {
-      showMessage(`Failed to save PDF: ${e.message}`);
+      console.error(e);
+      showMessage(`Failed to save PDF: ${e.message || e}`);
     } finally {
       saveBtn.disabled = false;
     }
@@ -190,7 +196,8 @@ export function initOrganizePdf() {
       downloadBlob(zipBlob, `${safeFileName(selectedFile.name)}_split_pages.zip`);
       showMessage("All pages split and downloaded as ZIP archive!", "success");
     } catch (e) {
-      showMessage(`Split failed: ${e.message}`);
+      console.error(e);
+      showMessage(`Split failed: ${e.message || e}`);
     } finally {
       splitBtn.disabled = false;
     }

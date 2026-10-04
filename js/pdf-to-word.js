@@ -1,6 +1,10 @@
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 import { $, formatBytes, safeFileName, downloadBlob, setupDragDrop } from "./utils.js";
 
+// Ensure PDF.js worker is always configured
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
 export function initPdfToWord() {
   const container = $("tool-pdf-to-word");
   if (!container) return;

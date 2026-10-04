@@ -1,4 +1,4 @@
-import { $, formatBytes, safeFileName, downloadBlob, setupDragDrop } from "./utils.js";
+import { $, formatBytes, safeFileName, setupDragDrop } from "./utils.js";
 
 export function initWordToPdf() {
   const container = $("tool-word-to-pdf");
@@ -56,48 +56,58 @@ export function initWordToPdf() {
 
     try {
       if (!window.mammoth) {
-        throw new Error("Mammoth.js library not loaded from CDN.");
+        throw new Error("Mammoth.js conversion library not loaded. Please check your internet connection.");
       }
 
       const arrayBuffer = await file.arrayBuffer();
       const result = await window.mammoth.convertToHtml({ arrayBuffer });
       htmlContent = result.value;
 
-      if (!htmlContent) {
-        showMessage("No readable text found in this Word file.");
+      if (!htmlContent || !htmlContent.trim()) {
+        showMessage("No readable content found in this Word document.");
         return;
       }
 
-      previewBox.innerHTML = htmlContent;
+      previewBox.innerHTML = `
+        <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #111; background: #fff; padding: 20px;">
+          ${htmlContent}
+        </div>
+      `;
       previewBox.classList.remove("hidden");
       convertBtn.disabled = false;
-      showMessage("Word document parsed. Click 'Convert to PDF' below to generate your PDF.", "success");
+      showMessage("Word document parsed successfully! Click 'Convert to PDF' below.", "success");
     } catch (e) {
-      console.error(e);
-      showMessage(`Could not read Word file: ${e.message}`);
+      console.error("Word parse error:", e);
+      showMessage(`Could not read Word file: ${e.message || e}`);
     }
   }
 
   async function convertToPdf() {
-    if (!htmlContent || !selectedFile || !window.html2pdf) return;
+    if (!htmlContent || !selectedFile) return;
     clearMessage();
     convertBtn.disabled = true;
-    showMessage("Generating vector PDF from document...", "success");
+    showMessage("Generating PDF from document...", "success");
 
     try {
+      if (!window.html2pdf) {
+        throw new Error("html2pdf library not loaded from CDN.");
+      }
+
+      const elementToConvert = previewBox.firstElementChild || previewBox;
       const opt = {
-        margin: [15, 15, 15, 15],
+        margin: [10, 10, 10, 10],
         filename: `${safeFileName(selectedFile.name)}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      await window.html2pdf().set(opt).from(previewBox).save();
+      await window.html2pdf().set(opt).from(elementToConvert).save();
       showMessage("PDF generated and downloaded successfully!", "success");
     } catch (e) {
-      console.error(e);
-      showMessage(`Conversion failed: ${e.message}`);
+      console.error("PDF generation error:", e);
+      showMessage(`Conversion failed: ${e.message || e}`);
     } finally {
       convertBtn.disabled = false;
     }

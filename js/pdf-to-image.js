@@ -1,6 +1,10 @@
 import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 import { $, formatBytes, safeFileName, downloadBlob, setupDragDrop } from "./utils.js";
 
+// Ensure PDF.js worker is always configured
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
 export function initPdfToImage() {
   const container = $("tool-pdf-to-image");
   if (!container) return;
@@ -25,7 +29,7 @@ export function initPdfToImage() {
 
   let selectedFile = null;
   let currentPdfDoc = null;
-  let renderedImages = []; // { pageNum, blob, dataUrl, filename }
+  let renderedImages = [];
 
   function showMessage(text, type = "error") {
     message.textContent = text;
@@ -64,7 +68,7 @@ export function initPdfToImage() {
     if (!file) return;
 
     if (!file.type.includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
-      showMessage("Please upload a PDF file.");
+      showMessage("Please upload a valid PDF file.");
       return;
     }
 
@@ -79,7 +83,8 @@ export function initPdfToImage() {
       fileMeta.textContent = `${formatBytes(file.size)} · ${currentPdfDoc.numPages} Page${currentPdfDoc.numPages === 1 ? "" : "s"}`;
       convertBtn.disabled = false;
     } catch (e) {
-      showMessage(`Could not read PDF: ${e.message}`);
+      console.error("PDF read error:", e);
+      showMessage(`Could not read PDF: ${e.message || e}`);
     }
   }
 
@@ -90,7 +95,7 @@ export function initPdfToImage() {
     gallery.innerHTML = "";
     renderedImages = [];
 
-    const format = formatSelect.value; // 'image/jpeg' or 'image/png'
+    const format = formatSelect.value;
     const ext = format === "image/png" ? "png" : "jpg";
     const scale = parseFloat(qualitySelect.value) || 2.0;
 
@@ -108,7 +113,6 @@ export function initPdfToImage() {
         canvas.height = viewport.height;
         const ctx = canvas.getContext("2d");
 
-        // Fill white background for JPEG
         if (ext === "jpg") {
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -122,7 +126,6 @@ export function initPdfToImage() {
 
         renderedImages.push({ pageNum, blob, dataUrl, filename: pageFileName });
 
-        // Add to gallery preview
         const card = document.createElement("div");
         card.className = "image-card";
         card.innerHTML = `
@@ -140,8 +143,8 @@ export function initPdfToImage() {
       downloadZipBtn.classList.remove("hidden");
       showMessage(`Rendered ${renderedImages.length} images. Download individually or as a ZIP archive below.`, "success");
     } catch (e) {
-      console.error(e);
-      showMessage(`Rendering failed: ${e.message}`);
+      console.error("Image rendering error:", e);
+      showMessage(`Rendering failed: ${e.message || e}`);
     } finally {
       convertBtn.disabled = false;
     }
